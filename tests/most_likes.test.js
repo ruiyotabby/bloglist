@@ -1,14 +1,13 @@
-const mostBlogs = require('../utils/list_helper').mostBlogs
+const mostLikes = require('../utils/list_helper').mostLikes
 
-describe('most blogs', () => {
-  test('of empty array', () => {
-    const blogs = []
-
-    expect(mostBlogs(blogs)).toEqual({})
+describe('most likes', () => {
+  test('of an empty array', () => {
+    const blog = []
+    expect(mostLikes(blog)).toEqual({})
   })
 
-  test('of 1 blog in array', () => {
-    const blogs = [
+  test('of one blog in an array', () => {
+    const blog = [
       {
         _id: "5a422aa71b54a676234d17f8",
         title: "Go To Statement Considered Harmful",
@@ -16,13 +15,12 @@ describe('most blogs', () => {
         url: "http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html",
         likes: 5,
         __v: 0
-      },
+      }
     ]
-
-    expect(mostBlogs(blogs)).toEqual({"author": "Edsger W. Dijkstra", "blogs": 1})
+    expect(mostLikes(blog)).toEqual({"author": "Edsger W. Dijkstra", "likes": 5})
   })
 
-  test('of many blogs in an array', () => {
+  test('of an arrayof bblogs', () => {
     const blogs = [
       {
         _id: "5a422a851b54a676234d17f7",
@@ -58,6 +56,6 @@ describe('most blogs', () => {
       },
     ]
 
-      expect(mostBlogs(blogs)).toEqual({"author": "Edsger W. Dijkstra", "blogs": 2})
+    expect(mostLikes(blogs)).toEqual({"author": "Edsger W. Dijkstra", "likes": 17})
   })
 })
