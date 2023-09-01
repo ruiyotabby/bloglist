@@ -8,11 +8,13 @@ const initialBlogs = [
   {
     title: "First",
     author: "mwenyewe",
+    url: 'https://loclhost:10000',
     likes: 4
   },
   {
     title: "Second",
     author: "mgeni",
+    url: 'https://loclhost:10000',
     likes: 2
   }
 ]
@@ -51,19 +53,63 @@ test('unique identifier is named id', async () => {
   expect(returnedBlogs.body[0].id).toBeDefined()
 })
 
-test('new blog post is saved to db', async () => {
-  const newBlog = {
-    title: "Third",
-    author: "hakuna",
-    likes: 99
-  }
-  const blog = new Blog(newBlog)
-  await blog.save()
-  const blogs = await api.get('/api/blogs')
-  const titles = blogs.body.map(b => b.title)
+describe('a blog post', () => {
+  test('is saved to db if valid', async () => {
+    const newBlog = {
+      title: "Third",
+      author: "hakuna",
+      likes: 99
+    }
+    const blog = new Blog(newBlog)
+    await blog.save()
+    const blogs = await api.get('/api/blogs')
+    const titles = blogs.body.map(b => b.title)
 
-  expect(blogs.body).toHaveLength(initialBlogs.length+1)
-  expect(titles).toContain('Third')
+    expect(blogs.body).toHaveLength(initialBlogs.length+1)
+    expect(titles).toContain('Third')
+  })
+
+  test('without likes will default to 0', async () => {
+    const newBlog = {
+      title: "Some title",
+      url: 'https://loclhost:10000',
+      author: "hakuna"
+    }
+
+    const blog = new Blog(newBlog)
+    await blog.save()
+    const blogs = await api.get('/api/blogs')
+
+    expect(blogs.body[initialBlogs.length].likes).toBe(0)
+  })
+
+  test.only('without title and url is invalid', async () => {
+    const newBlog = {
+      title: "fourth",
+      author: "leao",
+      likes: 99
+    }
+
+    let error
+
+    try {
+      const blog = new Blog(newBlog)
+      await blog.save()
+      expect(blog._id).toBeUndefined()
+    } catch (exception) {
+      error = exception
+    }
+
+    const blogs = await api.get('/api/blogs')
+    const titles = blogs.body.map(b => b.title)
+
+
+    expect(error).not.toBeUndefined()
+    expect(error).toBeInstanceOf(mongoose.Error.ValidationError)
+    expect(blogs.body).toHaveLength(initialBlogs.length)
+    expect(titles).not.toContain('fourth')
+  })
+
 })
 
 afterAll(async () => await mongoose.connection.close())
