@@ -58,12 +58,19 @@ describe('a blog post', () => {
     const newBlog = {
       title: "Third",
       author: "hakuna",
+      url: 'https://loclhost:10000',
       likes: 99
     }
     const blog = new Blog(newBlog)
     await blog.save()
     const blogs = await api.get('/api/blogs')
     const titles = blogs.body.map(b => b.title)
+
+    await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(201)
+    .expect('Content-Type', /application\/json/)
 
     expect(blogs.body).toHaveLength(initialBlogs.length+1)
     expect(titles).toContain('Third')
@@ -83,7 +90,7 @@ describe('a blog post', () => {
     expect(blogs.body[initialBlogs.length].likes).toBe(0)
   })
 
-  test.only('without title and url is invalid', async () => {
+  test('without title and url is invalid', async () => {
     const newBlog = {
       title: "fourth",
       author: "leao",
@@ -95,6 +102,7 @@ describe('a blog post', () => {
     try {
       const blog = new Blog(newBlog)
       await blog.save()
+      
       expect(blog._id).toBeUndefined()
     } catch (exception) {
       error = exception
@@ -103,8 +111,12 @@ describe('a blog post', () => {
     const blogs = await api.get('/api/blogs')
     const titles = blogs.body.map(b => b.title)
 
+    await api
+      .post('/api/blogs')
+      .send(newBlog)
+      .expect(400)
+      .expect('Content-Type', /application\/json/)
 
-    expect(error).not.toBeUndefined()
     expect(error).toBeInstanceOf(mongoose.Error.ValidationError)
     expect(blogs.body).toHaveLength(initialBlogs.length)
     expect(titles).not.toContain('fourth')
