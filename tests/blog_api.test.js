@@ -82,8 +82,12 @@ describe('a new blog post', () => {
       author: "hakuna"
     }
 
-    const blog = new Blog(newBlog)
-    await blog.save()
+    await api
+      .post('/api/blogs')
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
     const blogs = await api.get('/api/blogs')
 
     expect(blogs.body[initialBlogs.length].likes).toBe(0)
@@ -120,7 +124,7 @@ describe('a new blog post', () => {
 })
 
 describe('deletion of a blog', () => {
-  test.only('succeeds with status 204 if is is valid', async () => {
+  test('succeeds if id is valid', async () => {
     const blogsAtStart = await api.get('/api/blogs')
     const blogToDelete = blogsAtStart.body[0]
 
@@ -129,8 +133,63 @@ describe('deletion of a blog', () => {
       .expect(204)
 
     const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length-1)
-    expect(blogsAtEnd.body).not.toContain(blogToDelete)
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length - 1)
+    expect(blogsAtEnd.body).not.toContainEqual(blogToDelete)
+  })
+
+  test('fails if id is valid', async () => {
+    const blogsAtStart = await api.get('/api/blogs')
+    const blogToDelete = blogsAtStart.body[0]
+
+    await api
+      .delete(`/api/blogs/64ecac6591cbb53fdbd652a9`)
+      .expect(204)
+
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).not.toHaveLength(blogsAtStart.body.length - 1)
+    expect(blogsAtEnd.body).toContainEqual(blogToDelete)
+  })
+})
+
+describe('updating of a blog', () => {
+  test('succeeds if id is valid', async () => {
+    const newBlog = {
+      likes: 20
+    }
+
+    const blogsAtStart = await api.get('/api/blogs')
+    const blogToUpdate = blogsAtStart.body[0]
+
+    await api
+      .put(`/api/blogs/${blogToUpdate.id}`)
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
+
+    expect(blogsAtStart.body).not.toEqual(blogsAtEnd.body)
+    expect(blogsAtStart.body[0]).not.toEqual(blogsAtEnd.body[0])
+  })
+
+  test('fails to update if id is invalid', async () => {
+    const newBlog = {
+      likes: 20
+    }
+
+    const blogsAtStart = await api.get('/api/blogs')
+
+    await api
+      .put(`/api/blogs/64ecac6591cbb53fdbd792a9`)
+      .send(newBlog)
+      .expect(201)
+
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
+
+    expect(blogsAtStart.body).toEqual(blogsAtEnd.body)
+    expect(blogsAtStart.body[0]).toEqual(blogsAtEnd.body[0])
   })
 })
 
