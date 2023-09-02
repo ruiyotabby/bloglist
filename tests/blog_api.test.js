@@ -53,7 +53,7 @@ test('unique identifier is named id', async () => {
   expect(returnedBlogs.body[0].id).toBeDefined()
 })
 
-describe('a blog post', () => {
+describe('a new blog post', () => {
   test('is saved to db if valid', async () => {
     const newBlog = {
       title: "Third",
@@ -61,18 +61,17 @@ describe('a blog post', () => {
       url: 'https://loclhost:10000',
       likes: 99
     }
-    const blog = new Blog(newBlog)
-    await blog.save()
-    const blogs = await api.get('/api/blogs')
-    const titles = blogs.body.map(b => b.title)
 
     await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(201)
-    .expect('Content-Type', /application\/json/)
+      .post('/api/blogs')
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
 
+    const blogs = await api.get('/api/blogs')
     expect(blogs.body).toHaveLength(initialBlogs.length+1)
+
+    const titles = blogs.body.map(b => b.title)
     expect(titles).toContain('Third')
   })
 
@@ -97,19 +96,14 @@ describe('a blog post', () => {
       likes: 99
     }
 
-    let error
-
     try {
       const blog = new Blog(newBlog)
       await blog.save()
-      
+
       expect(blog._id).toBeUndefined()
     } catch (exception) {
-      error = exception
+      expect(exception).toBeInstanceOf(mongoose.Error.ValidationError)
     }
-
-    const blogs = await api.get('/api/blogs')
-    const titles = blogs.body.map(b => b.title)
 
     await api
       .post('/api/blogs')
@@ -117,11 +111,27 @@ describe('a blog post', () => {
       .expect(400)
       .expect('Content-Type', /application\/json/)
 
-    expect(error).toBeInstanceOf(mongoose.Error.ValidationError)
+    const blogs = await api.get('/api/blogs')
     expect(blogs.body).toHaveLength(initialBlogs.length)
+
+    const titles = blogs.body.map(b => b.title)
     expect(titles).not.toContain('fourth')
   })
+})
 
+describe('deletion of a blog', () => {
+  test.only('succeeds with status 204 if is is valid', async () => {
+    const blogsAtStart = await api.get('/api/blogs')
+    const blogToDelete = blogsAtStart.body[0]
+
+    await api
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .expect(204)
+
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length-1)
+    expect(blogsAtEnd.body).not.toContain(blogToDelete)
+  })
 })
 
 afterAll(async () => await mongoose.connection.close())
