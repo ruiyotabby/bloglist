@@ -3,6 +3,17 @@ const supertest = require('supertest');
 const app = require('../app')
 const Blog = require('../models/blog');
 const api = supertest(app)
+const User = require('../models/user')
+
+const getToken = async () => {
+  const user = {
+    username: 'john1',
+    password: 'john2023'
+  }
+
+  const token = await api.post('/api/login').send(user)
+  return token
+}
 
 const initialBlogs = [
   {
@@ -55,6 +66,34 @@ test('unique identifier is named id', async () => {
 
 describe('a new blog post', () => {
   test('is saved to db if valid', async () => {
+    const blogsAtStart = await api.get('/api/blogs')
+
+    const newBlog = {
+      title: "Third",
+      author: "hakuna",
+      url: 'https://loclhost:10000',
+      likes: 99
+    }
+
+    const token = await getToken()
+
+    await api
+      .post('/api/blogs')
+      .auth(token.body.token, { type: 'bearer' })
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length+1)
+
+    const titles = blogsAtEnd.body.map(b => b.title)
+    expect(titles).toContain('Third')
+  })
+
+  test('isnot saved to db if unautorized', async () => {
+    const blogsAtStart = await api.get('/api/blogs')
+
     const newBlog = {
       title: "Third",
       author: "hakuna",
@@ -65,14 +104,14 @@ describe('a new blog post', () => {
     await api
       .post('/api/blogs')
       .send(newBlog)
-      .expect(201)
+      .expect(401)
       .expect('Content-Type', /application\/json/)
 
-    const blogs = await api.get('/api/blogs')
-    expect(blogs.body).toHaveLength(initialBlogs.length+1)
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
 
-    const titles = blogs.body.map(b => b.title)
-    expect(titles).toContain('Third')
+    const titles = blogsAtEnd.body.map(b => b.title)
+    expect(titles).not.toContain('Third')
   })
 
   test('without likes will default to 0', async () => {
@@ -82,8 +121,11 @@ describe('a new blog post', () => {
       author: "hakuna"
     }
 
+    const token = await getToken()
+
     await api
       .post('/api/blogs')
+      .auth(token.body.token, { type: 'bearer' })
       .send(newBlog)
       .expect(201)
       .expect('Content-Type', /application\/json/)
@@ -109,8 +151,11 @@ describe('a new blog post', () => {
       expect(exception).toBeInstanceOf(mongoose.Error.ValidationError)
     }
 
+    const token = await getToken()
+
     await api
       .post('/api/blogs')
+      .auth(token.body.token, { type: 'bearer' })
       .send(newBlog)
       .expect(400)
       .expect('Content-Type', /application\/json/)

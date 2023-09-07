@@ -1,25 +1,56 @@
 const blogsRouter = require('express').Router()
 const { default: mongoose } = require('mongoose')
 const Blog = require('../models/blog')
-const { request, response } = require('../app')
+const jwt = require('jsonwebtoken')
+const config = require('../utils/config')
+const User = require('../models/user')
+
+const getTokenFrom = (request) => {
+  const authorization = request.get('authorization')
+  if (authorization && authorization.startsWith('Bearer ')) {
+    return authorization.replace('Bearer ', '')
+  }
+  return null
+}
 
 blogsRouter.get('/', async (request, response, next) => {
   try {
-    const blogs = await Blog.find({})
+    const blogs = await Blog.find({}).populate('user', { username: 1, name: 1 })
     response.status(200).json(blogs)
   } catch (error) {
     next(error)
   }
 })
 
-blogsRouter.post('/', async (request, response, next) => {
-  try {
-    const newBlog = new Blog(request.body)
-    const blog = await newBlog.save()
-    response.status(201).json(blog)
-  } catch (error) {
+blogsRouter.post('/', (request, response, next) => {
+
+  const { title, author, likes, url } = request.body
+
+  jwt.verify(getTokenFrom(request), config.SECRET, async (error, decoded) => {
+    if (!(decoded && decoded.id)) {
+      return response.status(401).json({error: 'token invalid'})
+    }
+
+    try {
+      const user = await User.findById(decoded.id)
+      const newBlog = new Blog({
+        title,
+        author,
+        likes,
+        url,
+        user: user._id
+      })
+      const blog = await newBlog.save()
+      user.blogs = user.blogs.concat(blog)
+      await user.save()
+      response.status(201).json(blog)
+    } catch (error) {
+      next(error)
+    }
     next(error)
-  }
+  })
+
+
 })
 
 blogsRouter.delete('/:id', async (request, response, next) => {

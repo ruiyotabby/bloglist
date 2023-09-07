@@ -7,13 +7,13 @@ const mongoose = require('mongoose')
 beforeEach( async () => {
   await User.deleteMany({})
 
-  const initialNote = new User({
+  const initialUser = {
     name: 'John',
     username: 'john1',
     password: 'john2023'
-  })
+  }
 
-  await initialNote.save()
+  await api.post('/api/users').send(initialUser)
 })
 
 test('all users are returned', async () => {
