@@ -3,7 +3,6 @@ const supertest = require('supertest');
 const app = require('../app')
 const Blog = require('../models/blog');
 const api = supertest(app)
-const User = require('../models/user')
 
 const getToken = async () => {
   const user = {
