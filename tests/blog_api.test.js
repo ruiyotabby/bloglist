@@ -10,7 +10,6 @@ const getToken = async () => {
     username: 'john1',
     password: 'john2023'
   }
-
   const token = await api.post('/api/login').send(user)
   return token.body.token
 }
@@ -35,7 +34,7 @@ beforeEach(async () => {
 
   const user = await User.find({})
 
-  let blogObjects = initialBlogs.map(blog => (
+  const blogObjects = initialBlogs.map(blog => (
     blog.user = user[0].id,
     new Blog(blog)
     ))
@@ -51,27 +50,31 @@ test('should return blogs as json', async () => {
 })
 
 test('should return all blogs', async () => {
-  const returnedBlogs = await api.get('/api/blogs').expect(200).expect('Content-Type', /application\/json/)
+  const returnedBlogs = await Blog.find({})
+  await api
+    .get('/api/blogs')
+    .expect(200)
+    .expect('Content-Type', /application\/json/)
 
-  expect(returnedBlogs.body).toHaveLength(initialBlogs.length)
+  expect(returnedBlogs).toHaveLength(initialBlogs.length)
 })
 
 test('a specific title is within the returned blogs', async () => {
-  const returnedBlogs = await api.get('/api/blogs')
-  const titles = returnedBlogs.body.map(blog => blog.title)
+  const returnedBlogs = await Blog.find({})
+  const titles = returnedBlogs.map(blog => blog.title)
 
   expect(titles).toContain('First')
 })
 
 test('unique identifier is named id', async () => {
-  const returnedBlogs = await api.get('/api/blogs')
+  const returnedBlogs = await Blog.find({})
 
-  expect(returnedBlogs.body[0].id).toBeDefined()
+  expect(returnedBlogs[0].id).toBeDefined()
 })
 
 describe('a new blog post', () => {
   test('is saved to db if valid', async () => {
-    const blogsAtStart = await api.get('/api/blogs')
+    const blogsAtStart = await Blog.find({})
 
     const newBlog = {
       title: "Third",
@@ -89,15 +92,15 @@ describe('a new blog post', () => {
       .expect(201)
       .expect('Content-Type', /application\/json/)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length+1)
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length+1)
 
-    const titles = blogsAtEnd.body.map(b => b.title)
+    const titles = blogsAtEnd.map(b => b.title)
     expect(titles).toContain('Third')
   })
 
   test('isnot saved to db if unautorized', async () => {
-    const blogsAtStart = await api.get('/api/blogs')
+    const blogsAtStart = await Blog.find({})
 
     const newBlog = {
       title: "Third",
@@ -112,10 +115,10 @@ describe('a new blog post', () => {
       .expect(401)
       .expect('Content-Type', /application\/json/)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length)
 
-    const titles = blogsAtEnd.body.map(b => b.title)
+    const titles = blogsAtEnd.map(b => b.title)
     expect(titles).not.toContain('Third')
   })
 
@@ -135,9 +138,9 @@ describe('a new blog post', () => {
       .expect(201)
       .expect('Content-Type', /application\/json/)
 
-    const blogs = await api.get('/api/blogs')
+    const blogs = await Blog.find({})
 
-    expect(blogs.body[initialBlogs.length].likes).toBe(0)
+    expect(blogs[initialBlogs.length].likes).toBe(0)
   })
 
   test('without title or url is invalid', async () => {
@@ -165,18 +168,18 @@ describe('a new blog post', () => {
       .expect(400)
       .expect('Content-Type', /application\/json/)
 
-    const blogs = await api.get('/api/blogs')
-    expect(blogs.body).toHaveLength(initialBlogs.length)
+    const blogs = await Blog.find({})
+    expect(blogs).toHaveLength(initialBlogs.length)
 
-    const titles = blogs.body.map(b => b.title)
+    const titles = blogs.map(b => b.title)
     expect(titles).not.toContain('fourth')
   })
 })
 
 describe('deletion of a blog', () => {
   test('succeeds if id and auth is valid', async () => {
-    const blogsAtStart = await api.get('/api/blogs')
-    const blogToDelete = blogsAtStart.body[0]
+    const blogsAtStart = await Blog.find({})
+    const blogToDelete = blogsAtStart[0]
 
     const token = await getToken()
 
@@ -185,27 +188,27 @@ describe('deletion of a blog', () => {
       .auth(token, { type: 'bearer' })
       .expect(204)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length - 1)
-    expect(blogsAtEnd.body).not.toContainEqual(blogToDelete)
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length - 1)
+    expect(blogsAtEnd).not.toContainEqual(blogToDelete)
   })
 
   test('fails if there is no auth', async () => {
-    const blogsAtStart = await api.get('/api/blogs')
-    const blogToDelete = blogsAtStart.body[0]
+    const blogsAtStart = await Blog.find({})
+    const blogToDelete = blogsAtStart[0]
 
     await api
       .delete(`/api/blogs/${blogToDelete.id}`)
       .expect(401)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
-    expect(blogsAtEnd.body).toContainEqual(blogToDelete)
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length)
+    expect(blogsAtEnd).toContainEqual(blogToDelete)
   })
 
   test('fails if id is invalid', async () => {
-    const blogsAtStart = await api.get('/api/blogs')
-    const blogToDelete = blogsAtStart.body[0]
+    const blogsAtStart = await Blog.find({})
+    const blogToDelete = blogsAtStart[0]
 
     const token = await getToken()
 
@@ -214,9 +217,9 @@ describe('deletion of a blog', () => {
       .auth(token, { type: 'bearer' })
       .expect(400)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
-    expect(blogsAtEnd.body).toContainEqual(blogToDelete)
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length)
+    expect(blogsAtEnd).toContainEqual(blogToDelete)
   })
 })
 
@@ -247,18 +250,17 @@ describe('updating of a blog', () => {
       likes: 20
     }
 
-    const blogsAtStart = await api.get('/api/blogs')
+    const blogsAtStart = await Blog.find({})
 
     await api
       .put(`/api/blogs/64ecac6591cbb53fdbd792a9`)
       .send(newBlog)
       .expect(201)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
-
-    expect(blogsAtStart.body).toEqual(blogsAtEnd.body)
-    expect(blogsAtStart.body[0]).toEqual(blogsAtEnd.body[0])
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length)
+    expect(blogsAtStart).toEqual(blogsAtEnd)
+    expect(blogsAtStart[0]).toEqual(blogsAtEnd[0])
   })
 })
 
