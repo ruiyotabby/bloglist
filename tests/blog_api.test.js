@@ -3,6 +3,7 @@ const supertest = require('supertest');
 const app = require('../app')
 const Blog = require('../models/blog');
 const api = supertest(app)
+const User = require('../models/user')
 
 const getToken = async () => {
   const user = {
@@ -11,7 +12,7 @@ const getToken = async () => {
   }
 
   const token = await api.post('/api/login').send(user)
-  return token
+  return token.body.token
 }
 
 const initialBlogs = [
@@ -32,7 +33,12 @@ const initialBlogs = [
 beforeEach(async () => {
   await Blog.deleteMany({})
 
-  let blogObjects = initialBlogs.map(blog => new Blog(blog))
+  const user = await User.find({})
+
+  let blogObjects = initialBlogs.map(blog => (
+    blog.user = user[0].id,
+    new Blog(blog)
+    ))
   const promiseArray = blogObjects.map(blog => blog.save())
   await Promise.all(promiseArray)
 })
@@ -45,7 +51,7 @@ test('should return blogs as json', async () => {
 })
 
 test('should return all blogs', async () => {
-  const returnedBlogs = await api.get('/api/blogs')
+  const returnedBlogs = await api.get('/api/blogs').expect(200).expect('Content-Type', /application\/json/)
 
   expect(returnedBlogs.body).toHaveLength(initialBlogs.length)
 })
@@ -78,7 +84,7 @@ describe('a new blog post', () => {
 
     await api
       .post('/api/blogs')
-      .auth(token.body.token, { type: 'bearer' })
+      .auth(token, { type: 'bearer' })
       .send(newBlog)
       .expect(201)
       .expect('Content-Type', /application\/json/)
@@ -124,7 +130,7 @@ describe('a new blog post', () => {
 
     await api
       .post('/api/blogs')
-      .auth(token.body.token, { type: 'bearer' })
+      .auth(token, { type: 'bearer' })
       .send(newBlog)
       .expect(201)
       .expect('Content-Type', /application\/json/)
@@ -134,7 +140,7 @@ describe('a new blog post', () => {
     expect(blogs.body[initialBlogs.length].likes).toBe(0)
   })
 
-  test('without title and url is invalid', async () => {
+  test('without title or url is invalid', async () => {
     const newBlog = {
       title: "fourth",
       author: "leao",
@@ -154,7 +160,7 @@ describe('a new blog post', () => {
 
     await api
       .post('/api/blogs')
-      .auth(token.body.token, { type: 'bearer' })
+      .auth(token, { type: 'bearer' })
       .send(newBlog)
       .expect(400)
       .expect('Content-Type', /application\/json/)
@@ -168,12 +174,15 @@ describe('a new blog post', () => {
 })
 
 describe('deletion of a blog', () => {
-  test('succeeds if id is valid', async () => {
+  test('succeeds if id and auth is valid', async () => {
     const blogsAtStart = await api.get('/api/blogs')
     const blogToDelete = blogsAtStart.body[0]
 
+    const token = await getToken()
+
     await api
       .delete(`/api/blogs/${blogToDelete.id}`)
+      .auth(token, { type: 'bearer' })
       .expect(204)
 
     const blogsAtEnd = await api.get('/api/blogs')
@@ -181,16 +190,32 @@ describe('deletion of a blog', () => {
     expect(blogsAtEnd.body).not.toContainEqual(blogToDelete)
   })
 
-  test('fails if id is valid', async () => {
+  test('fails if there is no auth', async () => {
     const blogsAtStart = await api.get('/api/blogs')
     const blogToDelete = blogsAtStart.body[0]
 
     await api
-      .delete(`/api/blogs/64ecac6591cbb53fdbd652a9`)
-      .expect(204)
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .expect(401)
 
     const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).not.toHaveLength(blogsAtStart.body.length - 1)
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
+    expect(blogsAtEnd.body).toContainEqual(blogToDelete)
+  })
+
+  test('fails if id is invalid', async () => {
+    const blogsAtStart = await api.get('/api/blogs')
+    const blogToDelete = blogsAtStart.body[0]
+
+    const token = await getToken()
+
+    await api
+      .delete(`/api/blogs/64ecac6591cbb53fdbd652a9`)
+      .auth(token, { type: 'bearer' })
+      .expect(400)
+
+    const blogsAtEnd = await api.get('/api/blogs')
+    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
     expect(blogsAtEnd.body).toContainEqual(blogToDelete)
   })
 })
@@ -201,8 +226,8 @@ describe('updating of a blog', () => {
       likes: 20
     }
 
-    const blogsAtStart = await api.get('/api/blogs')
-    const blogToUpdate = blogsAtStart.body[0]
+    const blogsAtStart = await Blog.find({})
+    const blogToUpdate = blogsAtStart[0]
 
     await api
       .put(`/api/blogs/${blogToUpdate.id}`)
@@ -210,11 +235,11 @@ describe('updating of a blog', () => {
       .expect(201)
       .expect('Content-Type', /application\/json/)
 
-    const blogsAtEnd = await api.get('/api/blogs')
-    expect(blogsAtEnd.body).toHaveLength(blogsAtStart.body.length)
+    const blogsAtEnd = await Blog.find({})
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length)
 
-    expect(blogsAtStart.body).not.toEqual(blogsAtEnd.body)
-    expect(blogsAtStart.body[0]).not.toEqual(blogsAtEnd.body[0])
+    expect(blogsAtStart).not.toEqual(blogsAtEnd)
+    expect(blogsAtStart[0]).not.toEqual(blogsAtEnd[0])
   })
 
   test('fails to update if id is invalid', async () => {
