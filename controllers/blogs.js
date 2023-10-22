@@ -38,7 +38,7 @@ blogsRouter.delete('/:id', userExtractor, async (request, response, next) => {
       return response.status(401).json({error: 'Only the user who posted can delete'})
     }
     const deletedBlog = await Blog.findByIdAndRemove(blog._id)
-    response.status(204).json(deletedBlog)
+    response.status(202).json(deletedBlog)
   } catch (error) {
     next(error)
   }
@@ -46,7 +46,9 @@ blogsRouter.delete('/:id', userExtractor, async (request, response, next) => {
 
 blogsRouter.put('/:id', async (request, response, next) => {
   try {
-    const blog = await Blog.findByIdAndUpdate(request.params.id, request.body, { new: true })
+    const blog = await Blog
+      .findByIdAndUpdate(request.params.id, request.body, { new: true })
+      .populate('user', { username: 1, name: 1 })
     response.status(201).json(blog)
   } catch (error) {
     next(error)
